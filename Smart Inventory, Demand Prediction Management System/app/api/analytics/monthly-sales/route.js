@@ -1,17 +1,3 @@
-/**
- * Monthly Sales Analytics API Route
- * ==================================
- * 
- * GET /api/analytics/monthly-sales
- * Returns monthly sales data for trend analysis and demand prediction
- * 
- * This endpoint provides:
- * - Monthly revenue and unit sales
- * - Top selling products
- * - Category performance
- * - Year-over-year comparisons
- */
-
 import { NextResponse } from 'next/server';
 import { executeQuery } from '@/lib/db';
 
@@ -154,31 +140,64 @@ export async function GET(request) {
 
     const dailyTrend = await executeQuery(dailyTrendQuery, { year, month });
 
+    // Get the recordset arrays
+    const monthlySummaryData = monthlySummary.recordset;
+    const topProductsData = topProducts.recordset;
+    const categoryPerformanceData = categoryPerformance.recordset;
+    const dailyTrendData = dailyTrend.recordset;
+
     // ===============================
-    // RESPONSE
+    // CALCULATE OVERALL STATISTICS
     // ===============================
+
+    const overallStats = {
+      year,
+      month: month || 'All',
+      totalRevenue: monthlySummaryData.reduce(
+        (sum, m) => sum + parseFloat(m.TotalRevenue || 0),
+        0
+      ).toFixed(2),
+      totalProfit: monthlySummaryData.reduce(
+        (sum, m) => sum + parseFloat(m.TotalProfit || 0),
+        0
+      ).toFixed(2),
+      totalTransactions: monthlySummaryData.reduce(
+        (sum, m) => sum + parseInt((m.TotalSales ?? m.TotalTransactions) || 0),
+        0
+      ),
+      totalUnitsSold: monthlySummaryData.reduce(
+        (sum, m) => sum + parseInt(m.TotalUnitsSold || 0),
+        0
+      ),
+      averageMonthlyRevenue: monthlySummaryData.length > 0
+        ? (monthlySummaryData.reduce(
+            (sum, m) => sum + parseFloat(m.TotalRevenue || 0),
+            0
+          ) / monthlySummaryData.length).toFixed(2)
+        : '0.00',
+    };
 
     return NextResponse.json({
       success: true,
-      message: `Sales analytics for ${month ? `month ${month}` : 'year'} ${year}`,
-      data: {
-        summary: monthlySummary.recordset,
-        topProducts: topProducts.recordset,
-        categoryPerformance: categoryPerformance.recordset,
-        dailyTrend: dailyTrend.recordset
-      }
+      message: 'Monthly sales analytics fetched successfully',
+      overallStats,
+      monthlySummary: monthlySummaryData,
+      data: monthlySummaryData,
+      topProducts: topProductsData,
+      categoryPerformance: categoryPerformanceData,
+      dailyTrend: dailyTrendData,
     });
-
   } catch (error) {
-    console.error('Error fetching sales analytics:', error);
+    console.error('Error fetching monthly sales analytics:', error);
 
     return NextResponse.json(
       {
         success: false,
-        message: 'Failed to fetch sales analytics',
+        message: 'Failed to fetch monthly sales analytics',
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
       },
       { status: 500 }
     );
   }
 }
+
