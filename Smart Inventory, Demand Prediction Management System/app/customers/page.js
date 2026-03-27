@@ -229,12 +229,33 @@ export default function CustomersPage() {
   const [showForm, setShowForm] = useState(false);
   const [expandedCustomer, setExpandedCustomer] = useState(null);
   const [search, setSearch] = useState('');
+  const [filterCity, setFilterCity] = useState('');
+  const [filterCountry, setFilterCountry] = useState('');
+  const [minSpent, setMinSpent] = useState('');
+  const [maxSpent, setMaxSpent] = useState('');
+  const [minOrders, setMinOrders] = useState('');
+  const [maxOrders, setMaxOrders] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [activeFiltersCount, setActiveFiltersCount] = useState(0);
   const [formData, setFormData] = useState({
     customerName: '', email: '', phone: '', address: '', city: '', country: '',
   });
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => { fetchCustomers(); }, []);
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  useEffect(() => {
+    let count = 0;
+    if (filterCity) count++;
+    if (filterCountry) count++;
+    if (minSpent) count++;
+    if (maxSpent) count++;
+    if (minOrders) count++;
+    if (maxOrders) count++;
+    setActiveFiltersCount(count);
+  }, [filterCity, filterCountry, minSpent, maxSpent, minOrders, maxOrders]);
 
   async function fetchCustomers() {
     try {
@@ -267,14 +288,37 @@ export default function CustomersPage() {
     } catch (err) { setError(err.message); } finally { setSubmitting(false); }
   }
 
+  const getUniqueCities = () => [...new Set(customers.map(c => c.City).filter(Boolean))].sort();
+  const getUniqueCountries = () => [...new Set(customers.map(c => c.Country).filter(Boolean))].sort();
+
+  const clearFilters = () => {
+    setFilterCity('');
+    setFilterCountry('');
+    setMinSpent('');
+    setMaxSpent('');
+    setMinOrders('');
+    setMaxOrders('');
+  };
+
   const filtered = customers.filter(c => {
-    if (!search) return true;
     const q = search.toLowerCase();
-    return (c.CustomerName || '').toLowerCase().includes(q)
-      || (c.Email || '').toLowerCase().includes(q)
-      || (c.Phone || '').toLowerCase().includes(q)
-      || (c.City || '').toLowerCase().includes(q)
-      || (c.Country || '').toLowerCase().includes(q);
+    const matchesSearch = !search || 
+      (c.CustomerName || '').toLowerCase().includes(q) ||
+      (c.Email || '').toLowerCase().includes(q) ||
+      (c.Phone || '').toLowerCase().includes(q) ||
+      (c.City || '').toLowerCase().includes(q) ||
+      (c.Country || '').toLowerCase().includes(q);
+    
+    const matchesCity = !filterCity || (c.City || '').toLowerCase() === filterCity.toLowerCase();
+    const matchesCountry = !filterCountry || (c.Country || '').toLowerCase() === filterCountry.toLowerCase();
+    
+    const spent = parseFloat(c.TotalSpent) || 0;
+    const matchesSpent = (!minSpent || spent >= +minSpent) && (!maxSpent || spent <= +maxSpent);
+    
+    const orders = parseInt(c.TotalOrders) || 0;
+    const matchesOrders = (!minOrders || orders >= +minOrders) && (!maxOrders || orders <= +maxOrders);
+    
+    return matchesSearch && matchesCity && matchesCountry && matchesSpent && matchesOrders;
   });
 
   const totalRevenue = customers.reduce((sum, c) => sum + parseFloat(c.TotalSpent || 0), 0);
@@ -293,7 +337,11 @@ export default function CustomersPage() {
 
   return (
     <div style={s.page}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeInScale { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
 
       {/* ── Header ── */}
       <div style={s.header}>
@@ -381,14 +429,115 @@ export default function CustomersPage() {
         ))}
       </div>
 
-      {/* ── Search ── */}
-      <div style={s.searchWrap}>
-        <HiOutlineMagnifyingGlass size={18} style={s.searchIcon} />
-        <input
-          style={s.searchInput} placeholder="Search customers by name, email, phone, city..."
-          value={search} onChange={e => setSearch(e.target.value)}
-        />
-        <span style={s.searchCount}>{filtered.length} of {customers.length}</span>
+      {/* ── Search & Filter Toggle ── */}
+      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
+        <div style={{ ...s.searchWrap, flex: 1 }}>
+          <HiOutlineMagnifyingGlass size={18} style={s.searchIcon} />
+          <input
+            style={s.searchInput} placeholder="Search customers by name, email, phone, city..."
+            value={search} onChange={e => setSearch(e.target.value)}
+          />
+          <span style={s.searchCount}>{filtered.length} of {customers.length}</span>
+        </div>
+        <button onClick={() => setShowFilters(!showFilters)} style={{
+          padding: '0.75rem 1.25rem', borderRadius: 14,
+          border: showFilters ? '1px solid rgba(139,92,246,0.4)' : '1px solid rgba(255,255,255,0.08)',
+          background: showFilters ? 'rgba(139,92,246,0.15)' : 'rgba(15,23,42,0.6)',
+          color: showFilters ? '#c4b5fd' : 'rgba(148,163,184,0.6)',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+          fontSize: 13, fontWeight: 600, transition: 'all 0.3s ease',
+          position: 'relative',
+        }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = '#c4b5fd'; }}
+          onMouseLeave={e => { if (!showFilters) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)'; } }}
+        >
+          🔍 Filters
+          {activeFiltersCount > 0 && (
+            <span style={{
+              position: 'absolute', top: -6, right: -6,
+              width: 20, height: 20, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+              color: '#fff', fontSize: 10, fontWeight: 700,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              animation: 'fadeInScale 0.3s ease-out',
+              boxShadow: '0 2px 8px rgba(139,92,246,0.4)',
+            }}>
+              {activeFiltersCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ── Filters Panel ── */}
+      <div style={{
+        maxHeight: showFilters ? 400 : 0,
+        opacity: showFilters ? 1 : 0,
+        overflow: 'hidden',
+        transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+        marginBottom: showFilters ? '1.5rem' : 0,
+      }}>
+        <div style={{
+          background: 'linear-gradient(145deg, rgba(15,23,42,0.8) 0%, rgba(30,41,59,0.5) 100%)',
+          borderRadius: 20, border: '1px solid rgba(139,92,246,0.15)',
+          backdropFilter: 'blur(30px)', overflow: 'hidden',
+        }}>
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '1.25rem', padding: '1.5rem',
+          }}>
+            <FilterGroup label="🏙️ City">
+              <select value={filterCity} onChange={e => setFilterCity(e.target.value)}
+                style={filterSelectStyle}>
+                <option value="">All Cities</option>
+                {getUniqueCities().map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </FilterGroup>
+            <FilterGroup label="🌍 Country">
+              <select value={filterCountry} onChange={e => setFilterCountry(e.target.value)}
+                style={filterSelectStyle}>
+                <option value="">All Countries</option>
+                {getUniqueCountries().map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </FilterGroup>
+            <FilterGroup label="💰 Total Spent Range">
+              <RangeInputs v1={minSpent} v2={maxSpent} s1={setMinSpent} s2={setMaxSpent} step="0.01" />
+            </FilterGroup>
+            <FilterGroup label="📊 Total Orders Range">
+              <RangeInputs v1={minOrders} v2={maxOrders} s1={setMinOrders} s2={setMaxOrders} />
+            </FilterGroup>
+          </div>
+
+          {/* Filter actions */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '1rem 1.5rem',
+            borderTop: '1px solid rgba(139,92,246,0.1)',
+            background: 'rgba(15,23,42,0.3)',
+          }}>
+            <button onClick={clearFilters} style={{
+              padding: '0.6rem 1.25rem', borderRadius: 10,
+              border: '1px solid rgba(239,68,68,0.25)',
+              background: 'rgba(239,68,68,0.08)', color: '#fca5a5',
+              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+              transition: 'all 0.3s ease',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              ✕ Clear All
+            </button>
+            <div style={{
+              fontSize: 12, color: 'rgba(148,163,184,0.7)', fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '0.5rem 0.85rem', borderRadius: 10,
+              background: 'rgba(59,130,246,0.08)',
+              border: '1px solid rgba(59,130,246,0.15)',
+            }}>
+              👁️ Showing {filtered.length} of {customers.length}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Customers Table ── */}
@@ -561,3 +710,59 @@ export default function CustomersPage() {
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value || 0);
 }
+
+function FilterGroup({ label, children }) {
+  return (
+    <div style={{
+      animation: 'fadeInUp 0.5s ease-out',
+    }}>
+      <label style={{
+        fontSize: 11, fontWeight: 700, color: '#94a3b8',
+        textTransform: 'uppercase', letterSpacing: '0.5px',
+      }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function RangeInputs({ v1, v2, s1, s2, step }) {
+  const inputStyle = {
+    flex: 1, padding: '0.6rem 0.75rem', borderRadius: 10,
+    border: '1.5px solid rgba(59,130,246,0.15)',
+    background: 'rgba(15,23,42,0.7)', color: '#e2e8f0',
+    fontSize: 12, outline: 'none', transition: 'all 0.3s ease',
+    fontFamily: 'inherit', minWidth: 0,
+  };
+  const focusHandler = (e) => {
+    e.target.style.borderColor = 'rgba(59,130,246,0.5)';
+    e.target.style.boxShadow = '0 0 12px rgba(59,130,246,0.15)';
+  };
+  const blurHandler = (e) => {
+    e.target.style.borderColor = 'rgba(59,130,246,0.15)';
+    e.target.style.boxShadow = 'none';
+  };
+  return (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: '100%' }}>
+      <input type="number" placeholder="Min" value={v1} onChange={e => s1(e.target.value)}
+        style={inputStyle} min="0" step={step}
+        onFocus={focusHandler} onBlur={blurHandler} />
+      <span style={{ color: 'rgba(148,163,184,0.4)', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>→</span>
+      <input type="number" placeholder="Max" value={v2} onChange={e => s2(e.target.value)}
+        style={inputStyle} min="0" step={step}
+        onFocus={focusHandler} onBlur={blurHandler} />
+    </div>
+  );
+}
+
+const filterSelectStyle = {
+  width: '100%', padding: '0.6rem 2.2rem 0.6rem 0.8rem', borderRadius: 10,
+  border: '1.5px solid rgba(59,130,246,0.15)',
+  background: 'rgba(15,23,42,0.7)', color: '#e2e8f0',
+  fontSize: 13, outline: 'none', cursor: 'pointer',
+  fontFamily: 'inherit', transition: 'all 0.3s ease',
+  appearance: 'none',
+  backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'8\' viewBox=\'0 0 12 8\'%3E%3Cpath fill=\'%2394a3b8\' d=\'M1 1l5 5 5-5\'/%3E%3C/svg%3E")',
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'right 0.8rem center',
+  boxSizing: 'border-box',
+};
