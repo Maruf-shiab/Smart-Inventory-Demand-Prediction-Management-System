@@ -14,6 +14,7 @@
 'use client';
 
 import { HiOutlineChartBar, HiOutlineCube, HiOutlinePlusCircle, HiOutlineTag, HiOutlineBuildingOffice, HiOutlineBanknotes, HiOutlineShoppingCart, HiOutlineInboxArrowDown, HiOutlineClipboardDocumentList, HiOutlineUserGroup, HiOutlineBuildingStorefront, HiOutlineBell, HiOutlineExclamationTriangle, HiOutlineNoSymbol, HiOutlineChartBarSquare, HiOutlineShieldCheck, HiOutlineArrowRightOnRectangle, HiOutlineWrench } from 'react-icons/hi2';
+import 'bootstrap/dist/css/bootstrap.min.css';
 import './globals.css';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
