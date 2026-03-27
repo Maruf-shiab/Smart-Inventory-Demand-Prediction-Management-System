@@ -15,7 +15,7 @@ import {
   HiOutlineExclamationTriangle, HiOutlineEnvelope, HiOutlinePhone,
   HiOutlinePencil, HiOutlineCube, HiOutlineCheck, HiOutlineArrowPath,
   HiOutlineMagnifyingGlass, HiOutlineChevronDown, HiOutlineChevronRight,
-  HiOutlineMapPin, HiOutlineBanknotes, HiOutlineTag,
+  HiOutlineMapPin, HiOutlineBanknotes, HiOutlineTag, HiOutlineFunnel,
 } from 'react-icons/hi2';
 
 /* ───────── inline dark styles ───────── */
@@ -224,6 +224,69 @@ const s = {
     borderTopColor: '#3b82f6', borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
   },
+  /* filter section */
+  filterContainer: {
+    marginBottom: '1.25rem', padding: '1rem 1.75rem',
+    background: 'linear-gradient(145deg, rgba(30,41,59,0.6), rgba(15,23,42,0.75))',
+    borderRadius: '14px', border: '1px solid rgba(255,255,255,0.06)',
+  },
+  filterHeader: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    cursor: 'pointer', userSelect: 'none', padding: '0.5rem 0',
+  },
+  filterTitle: {
+    display: 'flex', alignItems: 'center', gap: '0.5rem',
+    fontSize: '0.95rem', fontWeight: '600', color: '#e2e8f0',
+  },
+  filterBadge: {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    minWidth: '1.5rem', height: '1.5rem',
+    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+    color: '#fff', borderRadius: '50%', fontSize: '0.75rem', fontWeight: '700',
+    marginLeft: '0.5rem',
+  },
+  filterContent: {
+    marginTop: '1rem', paddingTop: '1rem',
+    borderTop: '1px solid rgba(255,255,255,0.06)',
+  },
+  filterGrid: {
+    display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.25rem',
+    marginBottom: '1rem',
+  },
+  FilterGroup: {
+    padding: '1rem', borderRadius: '12px',
+    background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.06)',
+    transition: 'all 0.3s ease',
+  },
+  filterLabel: {
+    display: 'block', fontSize: '0.82rem', fontWeight: '600',
+    color: 'rgba(148,163,184,0.85)', marginBottom: '0.5rem',
+  },
+  filterSelect: {
+    width: '100%', padding: '0.7rem 1rem',
+    background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '10px', color: '#e2e8f0', fontSize: '0.92rem',
+    outline: 'none', transition: 'border-color 0.2s ease', cursor: 'pointer',
+  },
+  rangeInputs: {
+    display: 'flex', alignItems: 'center', gap: '6px',
+  },
+  rangeInput: {
+    flex: 1, padding: '0.7rem 0.75rem',
+    background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '10px', color: '#e2e8f0', fontSize: '0.92rem',
+    outline: 'none', transition: 'border-color 0.2s ease', minWidth: 0,
+  },
+  rangeSeparator: {
+    color: 'rgba(148,163,184,0.5)', fontSize: '0.88rem', fontWeight: '500',
+  },
+  clearFiltersBtn: {
+    padding: '0.65rem 1.5rem', borderRadius: '10px',
+    background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.2))',
+    border: '1px solid rgba(239,68,68,0.25)', color: '#f87171',
+    fontWeight: '600', fontSize: '13px', cursor: 'pointer',
+    transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', gap: '0.4rem',
+  },
 };
 
 const statThemes = [
@@ -245,12 +308,29 @@ export default function SuppliersPage() {
   const [editingCategories, setEditingCategories] = useState(null);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [search, setSearch] = useState('');
+  const [filterCity, setFilterCity] = useState('');
+  const [filterCountry, setFilterCountry] = useState('');
+  const [minRating, setMinRating] = useState('');
+  const [maxRating, setMaxRating] = useState('');
+  const [filterSupplyCategory, setFilterSupplyCategory] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [activeFiltersCount, setActiveFiltersCount] = useState(0);
   const [newSupplier, setNewSupplier] = useState({
     supplierName: '', contactPerson: '', email: '',
     phone: '', address: '', city: '', country: '', categoryIds: [],
   });
 
   useEffect(() => { fetchSuppliers(); fetchCategories(); }, []);
+
+  useEffect(() => {
+    let count = 0;
+    if (filterCity) count++;
+    if (filterCountry) count++;
+    if (minRating) count++;
+    if (maxRating) count++;
+    if (filterSupplyCategory) count++;
+    setActiveFiltersCount(count);
+  }, [filterCity, filterCountry, minRating, maxRating, filterSupplyCategory]);
 
   async function fetchSuppliers() {
     try {
@@ -321,14 +401,31 @@ export default function SuppliersPage() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value || 0);
   }
 
+  const getUniqueCities = () => [...new Set(suppliers.map(s => s.City).filter(Boolean))].sort();
+  const getUniqueCountries = () => [...new Set(suppliers.map(s => s.Country).filter(Boolean))].sort();
+  
+  const clearSupplierFilters = () => {
+    setFilterCity('');
+    setFilterCountry('');
+    setMinRating('');
+    setMaxRating('');
+    setFilterSupplyCategory('');
+  };
+
   const filtered = suppliers.filter(sup => {
-    if (!search) return true;
     const q = search.toLowerCase();
-    return (sup.SupplierName || '').toLowerCase().includes(q)
+    const matchesSearch = !search || (sup.SupplierName || '').toLowerCase().includes(q)
       || (sup.ContactPerson || '').toLowerCase().includes(q)
       || (sup.Email || '').toLowerCase().includes(q)
       || (sup.City || '').toLowerCase().includes(q)
       || (sup.Country || '').toLowerCase().includes(q);
+    
+    const matchesCity = !filterCity || (sup.City || '').toLowerCase() === filterCity.toLowerCase();
+    const matchesCountry = !filterCountry || (sup.Country || '').toLowerCase() === filterCountry.toLowerCase();
+    const rating = parseFloat(sup.Rating || 0);
+    const matchesRating = (!minRating || rating >= +minRating) && (!maxRating || rating <= +maxRating);
+    
+    return matchesSearch && matchesCity && matchesCountry && matchesRating;
   });
 
   const totalProducts = suppliers.reduce((sum, sup) => sum + parseInt(sup.ProductCount || 0), 0);
@@ -471,6 +568,110 @@ export default function SuppliersPage() {
           value={search} onChange={e => setSearch(e.target.value)}
         />
         <span style={s.searchCount}>{filtered.length} of {suppliers.length}</span>
+      </div>
+
+      {/* ── Filter Panel ── */}
+      <div style={s.filterContainer}>
+        {/* Filter Header */}
+        <div style={s.filterHeader} onClick={() => setShowFilters(!showFilters)}>
+          <div style={s.filterTitle}>
+            <HiOutlineFunnel size={18} style={{ marginRight: '0.5rem' }} />
+            <strong>Filters</strong>
+            {activeFiltersCount > 0 && (
+              <span style={s.filterBadge}>{activeFiltersCount}</span>
+            )}
+          </div>
+          <HiOutlineChevronDown
+            size={18}
+            style={{
+              transform: showFilters ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.3s ease',
+            }}
+          />
+        </div>
+
+        {/* Filter Content */}
+        {showFilters && (
+          <div style={s.filterContent}>
+            <div style={s.filterGrid}>
+              {/* City Filter */}
+              <div style={s.FilterGroup}>
+                <label style={s.filterLabel}>City</label>
+                <select
+                  value={filterCity}
+                  onChange={e => setFilterCity(e.target.value)}
+                  style={s.filterSelect}
+                  onFocus={e => (e.target.style.borderColor = 'rgba(59,130,246,0.5)')}
+                  onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
+                >
+                  <option value="">All Cities</option>
+                  {getUniqueCities().map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Country Filter */}
+              <div style={s.FilterGroup}>
+                <label style={s.filterLabel}>Country</label>
+                <select
+                  value={filterCountry}
+                  onChange={e => setFilterCountry(e.target.value)}
+                  style={s.filterSelect}
+                  onFocus={e => (e.target.style.borderColor = 'rgba(59,130,246,0.5)')}
+                  onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
+                >
+                  <option value="">All Countries</option>
+                  {getUniqueCountries().map(country => (
+                    <option key={country} value={country}>{country}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Rating Filter */}
+              <div style={s.FilterGroup}>
+                <label style={s.filterLabel}>Rating Range</label>
+                <div style={s.rangeInputs}>
+                  <input
+                    type="number"
+                    min="0"
+                    max="5"
+                    placeholder="Min"
+                    value={minRating}
+                    onChange={e => setMinRating(e.target.value)}
+                    style={s.rangeInput}
+                    onFocus={e => (e.target.style.borderColor = 'rgba(59,130,246,0.5)')}
+                    onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
+                  />
+                  <span style={s.rangeSeparator}>-</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="5"
+                    placeholder="Max"
+                    value={maxRating}
+                    onChange={e => setMaxRating(e.target.value)}
+                    style={s.rangeInput}
+                    onFocus={e => (e.target.style.borderColor = 'rgba(59,130,246,0.5)')}
+                    onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Clear Button */}
+            {activeFiltersCount > 0 && (
+              <button
+                onClick={clearSupplierFilters}
+                style={s.clearFiltersBtn}
+                onMouseEnter={e => (e.target.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.3), rgba(220,38,38,0.3))')}
+                onMouseLeave={e => (e.target.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.2))')}
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Suppliers Table ── */}
